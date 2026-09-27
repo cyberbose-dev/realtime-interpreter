@@ -13,6 +13,8 @@ export interface Segment {
   /** partial: still being spoken, pending: waiting for the final translation, final, error */
   state: 'partial' | 'pending' | 'final' | 'error';
   revised: boolean;
+  /** Spoken by you (your language -> theirs) rather than by the other party. */
+  mine: boolean;
 }
 
 interface DraftResponse {
@@ -38,10 +40,10 @@ export class Session {
 
   constructor(private readonly onChange: (seg: Segment, reason: 'add' | 'update' | 'revise') => void) {}
 
-  handleResult(r: TranscriptResult, from: string, to: string) {
+  handleResult(r: TranscriptResult, from: string, to: string, mine: boolean) {
     let seg = this.byResultId.get(r.resultId);
     if (!seg) {
-      seg = { id: `s${++this.counter}`, from, to, source: '', translation: '', state: 'partial', revised: false };
+      seg = { id: `s${++this.counter}`, from, to, source: '', translation: '', state: 'partial', revised: false, mine };
       this.segments.push(seg);
       this.byResultId.set(r.resultId, seg);
       this.onChange(seg, 'add');
@@ -105,7 +107,7 @@ export class Session {
     try {
       const res = await post<DraftResponse>(
         'translate',
-        { mode: 'draft', from: seg.from, to: seg.to, text, context: settings.context, history: this.history(seg, 3) },
+        { mode: 'draft', from: seg.from, to: seg.to, text, context: settings.context, history: this.history(seg, 3), ...this.genders(seg) },
         { timeoutMs: 8000 },
       );
       // A late draft must not overwrite the final translation.
@@ -142,6 +144,7 @@ export class Session {
               text: seg.source,
               context: settings.context,
               history: this.history(seg, LIMITS.history),
+              ...this.genders(seg),
             }),
           );
           seg.translation = res.translation || seg.translation;
@@ -163,6 +166,12 @@ export class Session {
     } finally {
       this.processing = false;
     }
+  }
+
+  private genders(seg: Segment) {
+    return seg.mine
+      ? { speakerGender: settings.myGender, listenerGender: settings.otherGender }
+      : { speakerGender: settings.otherGender, listenerGender: settings.myGender };
   }
 
   /** Previous finalized segments of the same language pair. */

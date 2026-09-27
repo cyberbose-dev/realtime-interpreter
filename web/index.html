@@ -47,7 +47,20 @@
       <form method="dialog" id="settings-form">
         <h2>設定</h2>
         <label>自分の言語<select name="langA"></select></label>
+        <label>自分の性別
+          <select name="myGender">
+            <option value="female">女性</option>
+            <option value="male">男性</option>
+          </select>
+        </label>
         <label>相手の言語<select name="langB"></select></label>
+        <label>相手の性別
+          <select name="otherGender">
+            <option value="female">女性</option>
+            <option value="male">男性</option>
+          </select>
+          <small>性別は、話し手や聞き手の性別で形が変わる言語の訳し分けと、読み上げの声（発言した人の性別）に使います。男性の音声がない言語（韓国語・中国語・ヒンディー語など）は、ブラウザの男性の声か女性の声で読み上げます。</small>
+        </label>
         <fieldset>
           <legend>翻訳の向き</legend>
           <label class="inline"><input type="radio" name="direction" value="BtoA" /> <span id="dir-label-BtoA"></span></label>
@@ -74,13 +87,6 @@
             <option value="l">大</option>
             <option value="xl">特大</option>
           </select>
-        </label>
-        <label>読み上げの声
-          <select name="voiceGender">
-            <option value="female">女性</option>
-            <option value="male">男性</option>
-          </select>
-          <small>男性の音声がない言語（韓国語・中国語・ヒンディー語など）は、ブラウザの男性の声か女性の声で読み上げます。</small>
         </label>
         <label>翻訳の前提（コンテキスト）
           <textarea name="context" rows="5" maxlength="2000"></textarea>

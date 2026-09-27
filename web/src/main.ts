@@ -40,7 +40,8 @@ const view = new View({
       el.classList.remove('speaking');
       capture.setMuted(false);
     };
-    const gender = settings.voiceGender;
+    // Read it in the voice of whoever said it.
+    const gender = seg.mine ? settings.myGender : settings.otherGender;
     void speak(seg.translation, seg.to, gender, { onStart: () => {}, onEnd: done }).then((result) => {
       if (result === 'unsupported') {
         done();
@@ -66,7 +67,7 @@ const STATUS_TEXT: Record<StreamStatus, string> = {
 
 const stream = new TranscribeStream({
   getUrl: async (language) => (await withRetry(() => post<{ url: string }>('transcribe-url', { language }), 3)).url,
-  onResult: (r) => session.handleResult(r, sourceLang(), targetLang()),
+  onResult: (r) => session.handleResult(r, sourceLang(), targetLang(), settings.direction === 'AtoB'),
   onStatus: (s, detail) => {
     const el = $('status');
     el.dataset.state = s;
@@ -183,7 +184,8 @@ function fillForm() {
   }
   (form.elements.namedItem('source') as HTMLSelectElement).value = settings.source;
   (form.elements.namedItem('fontSize') as HTMLSelectElement).value = settings.fontSize;
-  (form.elements.namedItem('voiceGender') as HTMLSelectElement).value = settings.voiceGender;
+  (form.elements.namedItem('myGender') as HTMLSelectElement).value = settings.myGender;
+  (form.elements.namedItem('otherGender') as HTMLSelectElement).value = settings.otherGender;
   (form.elements.namedItem('draft') as HTMLInputElement).checked = settings.draft;
   (form.elements.namedItem('context') as HTMLTextAreaElement).value = settings.context;
   for (const r of form.querySelectorAll<HTMLInputElement>('input[name=direction]')) r.checked = r.value === settings.direction;
@@ -223,8 +225,11 @@ function wireSettings() {
       case 'fontSize':
         updateSettings({ fontSize: t.value as Settings['fontSize'] });
         break;
-      case 'voiceGender':
-        updateSettings({ voiceGender: t.value as Settings['voiceGender'] });
+      case 'myGender':
+        updateSettings({ myGender: t.value as Settings['myGender'] });
+        break;
+      case 'otherGender':
+        updateSettings({ otherGender: t.value as Settings['otherGender'] });
         break;
       case 'draft':
         updateSettings({ draft: t.checked });
@@ -285,7 +290,7 @@ async function boot() {
     // Local dev server only: feed transcript results without a microphone.
     Object.assign(window, {
       __devFeed: (resultId: string, text: string, partial: boolean) =>
-        session.handleResult({ resultId, text, partial }, sourceLang(), targetLang()),
+        session.handleResult({ resultId, text, partial }, sourceLang(), targetLang(), settings.direction === 'AtoB'),
     });
   }
 }

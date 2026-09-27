@@ -118,7 +118,21 @@ async function translate(body: Record<string, unknown>) {
   const text = str(body.text, 'text', LIMITS.text);
   const context = str(body.context, 'context', LIMITS.context, false) || DEFAULT_CONTEXT;
   const hist = history(body.history);
-  return mode === 'draft' ? draft(from, to, text, context, hist) : final(from, to, text, context, hist);
+  const genders = genderNote(body.speakerGender, body.listenerGender, to);
+  return mode === 'draft' ? draft(from, to, text, context + genders, hist) : final(from, to, text, context + genders, hist);
+}
+
+/** Tells the model the speaker's and listener's genders for languages whose wording depends on them. */
+function genderNote(speaker: unknown, listener: unknown, to: Language): string {
+  const g = (v: unknown) => (v === 'female' ? 'a woman' : v === 'male' ? 'a man' : undefined);
+  const parts = [g(speaker) && `The speaker is ${g(speaker)}.`, g(listener) && `The listener is ${g(listener)}.`].filter(Boolean);
+  if (parts.length === 0) return '';
+  return (
+    `\n${parts.join(' ')} Where ${to.name} marks gender (first-person forms, adjective or participle agreement, ` +
+    `polite particles and similar), use forms that match the speaker when they refer to the speaker and the listener ` +
+    `when they refer to the listener (e.g. in French "je suis fatiguée" agrees with a female speaker, while ` +
+    `"merci d'être venue" agrees with a female listener). Do not add gender where the language does not mark it.`
+  );
 }
 
 const esc = (s: string) => s.replace(/</g, '＜').replace(/>/g, '＞');

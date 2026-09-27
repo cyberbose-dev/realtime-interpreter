@@ -16,7 +16,9 @@ export interface Settings {
   draft: boolean;
   showOriginal: boolean;
   fontSize: 's' | 'm' | 'l' | 'xl';
-  voiceGender: VoiceGender;
+  /** Speaker genders: used for the read-aloud voice and for gendered wording in translations. */
+  myGender: VoiceGender;
+  otherGender: VoiceGender;
   context: string;
 }
 
@@ -43,7 +45,8 @@ const defaults: Settings = {
   draft: true,
   showOriginal: false,
   fontSize: 'm',
-  voiceGender: 'female',
+  myGender: 'female',
+  otherGender: 'female',
   context: DEFAULT_CONTEXT,
 };
 
