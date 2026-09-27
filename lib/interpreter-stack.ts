@@ -61,7 +61,7 @@ export class InterpreterStack extends cdk.Stack {
     });
 
     const seed = cdk.Token.isUnresolved(this.account) ? cdk.Names.uniqueId(this) : `${this.account}-${this.region}-${id}`;
-    const domainPrefix = ctx('domainPrefix') ?? `simul-${createHash('sha256').update(seed).digest('hex').slice(0, 12)}`;
+    const domainPrefix = ctx('domainPrefix') ?? `realtime-${createHash('sha256').update(seed).digest('hex').slice(0, 12)}`;
     const domain = userPool.addDomain('Domain', {
       cognitoDomain: { domainPrefix },
       managedLoginVersion: cognito.ManagedLoginVersion.NEWER_MANAGED_LOGIN,

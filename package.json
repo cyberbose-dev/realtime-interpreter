@@ -1,5 +1,5 @@
 {
-  "name": "simul-interpreter",
+  "name": "realtime-interpreter",
   "version": "0.1.0",
   "private": true,
   "description": "Real-time simultaneous interpretation web app on AWS (Transcribe + Bedrock + Polly)",

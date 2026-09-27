@@ -1,4 +1,4 @@
-# simul-interpreter
+# realtime-interpreter
 
 ブラウザで使うリアルタイムの同時通訳アプリです。AWS のサーバーレスのサービスだけで動きます。
 Amazon Transcribe で音声を文字起こしし、話している途中の文を Amazon Nova 2 Lite で仮訳し、
@@ -9,7 +9,7 @@ A real-time interpretation web app on AWS serverless: Amazon Transcribe streamin
 
 ## 機能
 
-- 音声入力：PC はマイクと PC の音声（Chrome・Edge の画面共有の音声）を混ぜて使える。スマートフォンはマイクのみ
+- 音声入力：PC はマイクと PC の音声を混ぜて使える。PC の音声は、Chrome・Edge の画面共有で「タブ」（そのタブの音声）か「ウィンドウ」（システムの音声）を選んで取り込む。スマートフォンはマイクのみ
 - 仮訳と確定訳：話している途中の文は Nova 2 Lite で仮訳を出し、確定した文は Haiku 4.5 が直前 10 文を踏まえて訳す
 - 過去の訳の修正：新しい文から前の訳の誤り（文の途中で区切られた箇所、技術用語を普通の単語として訳した箇所など）がわかると、Haiku 4.5 がその訳も直す。直した訳は点線の下線とハイライトで示す
 - 言語：東京リージョンの Transcribe がストリーミングに対応している 54 言語すべて（`shared/languages.ts`）。どの 2 言語の組み合わせでも翻訳できる。アラビア語など右から左に書く言語も表示できる
@@ -23,30 +23,7 @@ A real-time interpretation web app on AWS serverless: Amazon Transcribe streamin
 
 ## アーキテクチャ
 
-```mermaid
-flowchart LR
-  subgraph Browser
-    UI[SPA<br/>AudioWorklet 16kHz PCM]
-  end
-  subgraph AWS["AWS（既定: ap-northeast-1）"]
-    Cognito[Cognito<br/>マネージドログイン]
-    APIGW[API Gateway<br/>HTTP API]
-    Web[Lambda: web<br/>SPA 配信]
-    Api[Lambda: api]
-    Transcribe[Transcribe<br/>Streaming]
-    Nova[Bedrock<br/>Nova 2 Lite]
-    Haiku[Bedrock<br/>Claude Haiku 4.5]
-    Polly[Polly]
-  end
-  UI -- ログイン（認可コード + PKCE） --> Cognito
-  UI -- "GET /" --> APIGW --> Web
-  UI -- "POST /api/*（JWT）" --> APIGW --> Api
-  Api -- 署名付き URL を発行 --> UI
-  UI == "WebSocket（音声）" ==> Transcribe
-  Api -- 仮訳 --> Nova
-  Api -- 確定訳 + 過去の訳の修正 --> Haiku
-  Api -- 読み上げ --> Polly
-```
+![アーキテクチャ図](docs/architecture.png)
 
 | 要素 | 役割 |
 |---|---|
@@ -69,15 +46,17 @@ S3 と CloudFront は使いません。S3 の静的ウェブサイトホステ�
 
 ## デプロイ
 
-必要なもの：Node.js 22 以上、AWS CLI、CDK をブートストラップ済みの AWS アカウント。
+必要なもの：Node.js 22.12 以上、AWS CLI、AWS アカウント。
 
 ```bash
 npm install
-npm run deploy                          # 東京（ap-northeast-1）
-npm run deploy -- -c region=us-west-2   # リージョンを変える
+# npx cdk bootstrap      # そのアカウント・リージョンで CDK を初めて使うときだけ実行する
+npm run deploy           # 東京（ap-northeast-1）
+# npm run deploy -- -c region=us-west-2   # リージョンを変えるときは、上の行の代わりにこちら
 ```
 
 `cdk deploy` を直接実行しても構いません。SPA のビルドは Lambda のパッケージを作る処理の中で行います。
+リージョンを変えたときは、`cdk bootstrap` も `-c region=...` をつけて（または `AWS_REGION` を設定して）そのリージョンで実行します。ブートストラップ済みの環境で再実行すると、実行ロールの権限などを既定の設定で上書きすることがあるので、必要なときだけ実行してください。
 
 Amazon Bedrock では、デプロイの前に次を済ませておきます。
 
@@ -100,13 +79,13 @@ CLI では `aws cognito-idp admin-create-user --user-pool-id <UserPoolId> --user
 | キー | 既定値 | 内容 |
 |---|---|---|
 | `region` | `ap-northeast-1` | デプロイ先。`CDK_DEPLOY_REGION` や `AWS_REGION` でも指定できる |
-| `stackName` | `SimulInterpreter` | スタック名 |
+| `stackName` | `RealtimeInterpreter` | スタック名 |
 | `draftModelId` / `finalModelId` | 上の表 | モデル ID を明示するとき |
 | `selfSignUp` | `false` | `true` でセルフサインアップ（URL を知っている人が自分で登録できる）を許可する |
 | `throttleRate` / `throttleBurst` | `20` / `40` | API 全体のスロットリング（リクエスト/秒） |
 | `domainPrefix` | 自動 | Cognito ドメインの接頭辞 |
 
-削除は `npm run destroy` です。ユーザープールも削除されます。
+削除は `npm run destroy` です（リージョンを変えてデプロイした場合は `npm run destroy -- -c region=...`）。ユーザープールも削除されます。
 
 ## コスト
 
@@ -150,6 +129,7 @@ Vite の開発サーバーが、`lambda/api.ts` を手元の AWS 認証情報で
 - マイクと PC の音声を同時に使うと、スピーカーの音をマイクが拾い、同じ発言を二重に文字起こしすることがある。ヘッドホンを使うか、入力を「PC の音声のみ」にする
 - 読み上げ中は、その音声を文字起こししないよう入力を無音にする
 - ブラウザの読み上げ機能は声の性別を返さないので、声の名前から推定している。ブラウザや OS によっては外れる
+- 言語の一覧と Polly の声の割り当ては、東京リージョンで確認したもの。ほかのリージョンでは Polly の声が使えないことがあり、その場合はブラウザの読み上げ機能で読む
 - Cognito が送るメール（招待、パスワードの再設定）は 1 日 50 通まで。それ以上必要なら Amazon SES を設定する
 
 ## ライセンス
