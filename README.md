@@ -1,24 +1,24 @@
 # simul-interpreter
 
-AWS のサーバーレスだけで動く、ブラウザ向けのリアルタイム同時通訳アプリです。
-Amazon Transcribe で音声をストリーミングで文字起こしし、確定前は Amazon Nova 2 Lite、
-確定後は Claude Haiku 4.5（Amazon Bedrock）で翻訳します。翻訳文は長押しで Amazon Polly が読み上げます。
+ブラウザで使うリアルタイムの同時通訳アプリです。AWS のサーバーレスのサービスだけで動きます。
+Amazon Transcribe で音声を文字起こしし、話している途中の文を Amazon Nova 2 Lite で仮訳し、
+文が確定したら Claude Haiku 4.5 が直前の文脈を踏まえて訳し直します。訳文は長押しで Amazon Polly が読み上げます。
 
-A real-time interpretation web app on AWS serverless: Amazon Transcribe streaming + Amazon Bedrock
-(Nova 2 Lite for drafts, Claude Haiku 4.5 for final translations with context) + Amazon Polly.
+A real-time interpretation web app on AWS serverless: Amazon Transcribe streaming, Amazon Bedrock
+(Nova 2 Lite for drafts, Claude Haiku 4.5 for context-aware final translations) and Amazon Polly.
 
-## できること
+## 機能
 
-- PC はマイクと PC の音声（画面・タブ共有の音声）を混ぜて入力、スマートフォンはマイクのみ
-- 話している途中の文は Nova 2 Lite で仮訳し、確定した文は Haiku 4.5 が直前 10 文の文脈を踏まえて訳す
-- Haiku 4.5 は、新しい文で前の訳の誤りがわかったとき（主語、用語、文の途中で切れた箇所など）に、過去の訳も修正する（修正した訳は点線の下線と一瞬のハイライトで示す）
-- 翻訳の向きはヘッダーのボタン 1 つで切り替え。既定は English (US) → 日本語
-- 既定では翻訳文のみを表示し、「原文」ボタンで上 1/3 に原文、下 2/3 に翻訳文を表示
-- 設定で「自分の性別」と「相手の性別」（既定はどちらも女性）を選べる。話し手や聞き手の性別で形が変わる言語（フランス語の fatigué／fatiguée、タイ語の ครับ／ค่ะ など）は、それに合わせて訳し分ける
-- 確定した翻訳文を長押しすると、発言した人の性別の声で読み上げる。Polly に音声がない言語（繁体字中国語、タイ語）や、男性の音声がない言語（韓国語、中国語、ヒンディー語）の男性の声は、ブラウザの読み上げ機能（`speechSynthesis`）を使う（ブラウザに男性の声がなければ Polly の女性の声で読む）
-- 翻訳の前提（コンテキスト）の初期値は「AWS イベントの参加者向け。AWS・技術・ビジネス用語は無理に訳さず英字かカタカナで。原文に忠実に簡潔に」。設定から変更できる
-- ネットワークの切断や Wi-Fi とモバイル回線の切り替えがあっても自動で再接続する。切断中の音声は最大 15 秒ぶんを保持し、再接続後に送る
-- 設定はすべて画面上のモーダルから変更でき、タブを開いている間だけ有効（`sessionStorage`）。文字起こしや翻訳はどこにも保存しない
+- 音声入力：PC はマイクと PC の音声（Chrome・Edge のタブ共有の音声）を混ぜて使える。スマートフォンはマイクのみ
+- 仮訳と確定訳：話している途中の文は Nova 2 Lite で仮訳を出し、確定した文は Haiku 4.5 が直前 10 文を踏まえて訳す
+- 過去の訳の修正：新しい文から前の訳の誤り（文の途中で区切られた箇所、技術用語を普通の単語として訳した箇所など）がわかると、Haiku 4.5 がその訳も直す。直した訳は点線の下線とハイライトで示す
+- 翻訳の向き：ヘッダーのボタンで切り替える。既定は英語（米国）→ 日本語
+- 表示：既定は訳文のみ。「原文」ボタンで、上 1/3 に原文、下 2/3 に訳文を表示する
+- 読み上げ：確定した訳文を長押しすると、発言した人の性別の声で読み上げる。Polly に声がない言語（中国語（繁体字）、タイ語）と、Polly に男性の声がない言語の男性の声は、ブラウザの読み上げ機能（`speechSynthesis`）を使う
+- 性別：設定で「自分の性別」と「相手の性別」を選べる（既定はどちらも女性）。話し手や聞き手の性別で語形が変わる言語（フランス語の fatigué／fatiguée、タイ語の ครับ／ค่ะ など）は、それに合わせて訳し分ける
+- 翻訳の前提：初期値は「AWS イベントの参加者向け。AWS のサービス名・技術用語・ビジネス用語は無理に訳さず英字かカタカナで。原文に忠実に簡潔に」。設定で書き換えられる
+- 再接続：ネットワークが切れたり Wi-Fi とモバイル回線が切り替わったりしても、自動で再接続する。切断中の音声は最大 15 秒ぶんを保持し、再接続後に送る
+- 保存しない：設定はタブを開いている間だけ有効（`sessionStorage`）。文字起こしと訳文はどこにも保存しない
 
 ## アーキテクチャ
 
@@ -43,91 +43,95 @@ flowchart LR
   Api -- 署名付き URL を発行 --> UI
   UI == "WebSocket（音声）" ==> Transcribe
   Api -- 仮訳 --> Nova
-  Api -- 確定訳 + 過去訳の修正 --> Haiku
+  Api -- 確定訳 + 過去の訳の修正 --> Haiku
   Api -- 読み上げ --> Polly
 ```
 
 | 要素 | 役割 |
 |---|---|
-| API Gateway（HTTP API） | 入口を 1 つにまとめる。`GET /` は SPA、`POST /api/{op}` は Cognito の JWT を検証してから API へ |
-| Lambda `web` | Vite でビルドした SPA をパッケージに同梱して返す。CSP などのセキュリティヘッダーを付ける |
-| Lambda `api` | `transcribe-url`（Transcribe の署名付き WebSocket URL、有効 30 秒）、`translate`（`draft` / `final`）、`speak`（Polly） |
-| Transcribe | ブラウザから WebSocket で直接つなぐ。音声は Lambda を通らない |
-| Cognito | マネージドログイン。ユーザーは管理者が作る（既定）。SPA は認可コード + PKCE でトークンを得る |
+| API Gateway（HTTP API） | 入口を 1 つにまとめる。`GET /` は SPA、`POST /api/{op}` は Cognito の JWT を検証してから API 用の Lambda へ渡す |
+| Lambda `web` | Vite でビルドした SPA をパッケージに同梱して返す。CSP などのセキュリティヘッダーを付ける。AWS の権限は持たない |
+| Lambda `api` | `transcribe-url`（Transcribe の署名付き WebSocket URL。有効期限 30 秒）、`translate`（`draft` / `final`）、`speak`（Polly） |
+| Transcribe | ブラウザが WebSocket で直接つなぐ。音声は Lambda を通らない |
+| Cognito | マネージドログイン。既定ではユーザーを管理者が作る。SPA は認可コード + PKCE でトークンを得る |
 
-S3 と CloudFront は使いません。SPA も API も同じドメイン（API Gateway）から配信するので CORS が不要です。
+S3 と CloudFront は使いません。S3 の静的ウェブサイトホスティングは HTTP でしか配信できず、マイク（`getUserMedia`）は HTTPS でないと使えないためです。SPA と API を同じ API Gateway から配信するので、CORS の設定も要りません。
 
 ### モデル
 
-| 用途 | 既定のモデル ID（東京） | 理由 |
+| 用途 | 既定のモデル ID（東京） | 使い方 |
 |---|---|---|
-| 確定前の仮訳 | `jp.amazon.nova-2-lite-v1:0` | 速くて安い。700 ms に 1 回まで、同時に 1 リクエストまでに間引く |
+| 確定前の仮訳 | `jp.amazon.nova-2-lite-v1:0` | 700 ms に 1 回まで、同時に 1 リクエストまでに間引いて呼ぶ |
 | 確定後の翻訳 | `jp.anthropic.claude-haiku-4-5-20251001-v1:0` | 直前 10 文を渡し、ツール呼び出しで `{translation, revisions[]}` を返させる |
 
-推論プロファイルはデプロイ先のリージョンから自動で選びます（東京・大阪は `jp.`、`us-*` は `us.`、`eu-*` は `eu.`、それ以外は `global.`）。
-`jp.` の推論プロファイルは推論を日本国内のリージョンで処理します。
+推論プロファイルは、デプロイ先のリージョンから自動で選びます（東京・大阪は `jp.`、`us-*` は `us.`、`eu-*` は `eu.`、それ以外は `global.`）。`jp.` の推論プロファイルは、推論を日本国内のリージョンで処理します。
 
 ## デプロイ
 
-必要なもの: Node.js 22 以上、AWS CLI、CDK をブートストラップ済みの AWS アカウント。
+必要なもの：Node.js 22 以上、AWS CLI、CDK をブートストラップ済みの AWS アカウント。
 
 ```bash
 npm install
-npm run deploy                      # 東京（ap-northeast-1）
+npm run deploy                          # 東京（ap-northeast-1）
 npm run deploy -- -c region=us-west-2   # リージョンを変える
 ```
 
-出力の `AppUrl` を開いてログインします。既定ではセルフサインアップを無効にしているので、ユーザーは管理者が作ります。
+`cdk deploy` を直接実行しても構いません。SPA のビルドは Lambda のパッケージを作る処理の中で行います。
+
+Amazon Bedrock では、デプロイの前に次を済ませておきます。
+
+- Anthropic のモデルを初めて使うアカウントは、Bedrock コンソールのモデルカタログで Claude のモデルを開き、利用目的（ユースケース）のフォームを提出する
+- Anthropic のモデルを初めて呼ぶときには AWS Marketplace の権限が要る。Lambda のロールにはこの権限を付けていないので、管理者の権限で一度呼んでおく（例：`aws bedrock-runtime converse --model-id jp.anthropic.claude-haiku-4-5-20251001-v1:0 --messages '[{"role":"user","content":[{"text":"hi"}]}]'`）
+- デプロイ先のリージョンで、上の表のモデル ID（推論プロファイル）が使えることを確認する
+
+### ユーザーの作成
+
+既定ではセルフサインアップを無効にしているので、ユーザーは管理者が作ります。
 
 1. AWS マネジメントコンソールで Amazon Cognito を開き、出力の `UserPoolId` のユーザープールを選ぶ
 2. 「ユーザー」→「ユーザーを作成」で、招待メッセージを「E メールで送信」、パスワードを「パスワードの生成」にし、メールアドレスを入れて「E メールアドレスを検証済みとしてマークする」をオンにして作成する
-3. 招待メール（アプリの URL と仮パスワードが入っている）を受け取った人が、初回ログイン時に新しいパスワードを設定する
+3. アプリの URL と仮パスワードが入った招待メールが届くので、初回ログイン時に新しいパスワードを設定してもらう
 
-CLI なら `aws cognito-idp admin-create-user --user-pool-id <UserPoolId> --username <メールアドレス> --user-attributes Name=email,Value=<メールアドレス> Name=email_verified,Value=true` でも作れます。
+CLI では `aws cognito-idp admin-create-user --user-pool-id <UserPoolId> --username <メールアドレス> --user-attributes Name=email,Value=<メールアドレス> Name=email_verified,Value=true` で作れます。
 
-初回に Amazon Bedrock でやること:
-
-- Anthropic のモデルを初めて使うアカウントは、Bedrock コンソールのモデルカタログから Claude のモデルを開き、利用目的（ユースケース）のフォームを提出する
-- デプロイ先のリージョンで、上表のモデル ID（推論プロファイル）が使えることを確認する
-
-### 変更できるパラメータ（`-c key=value`）
+### パラメータ（`-c key=value`）
 
 | キー | 既定値 | 内容 |
 |---|---|---|
 | `region` | `ap-northeast-1` | デプロイ先。`CDK_DEPLOY_REGION` や `AWS_REGION` でも指定できる |
 | `stackName` | `SimulInterpreter` | スタック名 |
-| `draftModelId` / `finalModelId` | 上表 | モデル ID を明示するとき |
-| `selfSignUp` | `false` | `true` でセルフサインアップ（誰でもメールアドレスで登録できる）を許可する |
+| `draftModelId` / `finalModelId` | 上の表 | モデル ID を明示するとき |
+| `selfSignUp` | `false` | `true` でセルフサインアップ（URL を知っている人が自分で登録できる）を許可する |
 | `throttleRate` / `throttleBurst` | `20` / `40` | API 全体のスロットリング（リクエスト/秒） |
 | `domainPrefix` | 自動 | Cognito ドメインの接頭辞 |
 
-削除は `npm run destroy` です（ユーザープールも消えます）。
+削除は `npm run destroy` です。ユーザープールも削除されます。
 
 ## コスト
 
-リソースはすべて使った分だけ課金される（常時稼働のリソースがない）ので、使っていない間の費用はほぼ 0 です。
-連続で 1 時間話し続けた場合の目安（2026 年 9 月時点、東京リージョン、概算）:
+常時稼働のリソースがなく、すべて使った分だけの課金なので、使っていない間の費用はほぼ 0 です。1 時間話し続けたときの目安は約 $2.2 です（2026 年 9 月時点、東京リージョン）。
 
-| 項目 | 目安 |
-|---|---|
-| Transcribe ストリーミング（$0.0001667/秒） | 約 $0.60 |
-| Haiku 4.5 の確定訳（1 時間に約 600 文、1 回あたり入力約 1,000 トークン） | 約 $1.0 |
-| Nova 2 Lite の仮訳（最大で 1 時間に約 5,000 回） | 約 $0.5 |
-| Lambda、API Gateway、Cognito、Polly | 数セント（無料利用枠の範囲に収まることが多い） |
+| 項目 | 単価 | 1 時間の目安 |
+|---|---|---|
+| Transcribe ストリーミング | $0.0001667/秒 | $0.60 |
+| Haiku 4.5（確定訳） | 入力 $1、出力 $5（100 万トークンあたり、Anthropic の定価） | $1.0 |
+| Nova 2 Lite（仮訳） | 入力 $0.396、出力 $3.311（100 万トークンあたり） | $0.56 |
+| Lambda、API Gateway、Cognito、Polly | — | 数セント |
 
-仮訳は設定でオフにできます。Transcribe は無音の間も課金されるため、10 分間なにも認識しなければ自動で停止します（オフラインや再接続中の時間は数えません）。
+1 時間の目安は、確定訳を 1 時間に 600 回（6 秒に 1 文）と仮定し、試用時の CloudWatch の実測値（確定訳 1 回あたり入力約 1,240・出力約 80 トークン、仮訳 1 回あたり入力約 310・出力約 26 トークン、仮訳の回数は確定訳の約 4.5 倍）から計算しています。`jp.` の推論プロファイルで Haiku 4.5 の単価に割増があるかは確認していません。
+
+仮訳は設定でオフにできます。Transcribe は無音の間も課金されるので、10 分間なにも認識しなければ自動で停止します（オフラインや再接続中の時間は数えません）。
 
 ## セキュリティ
 
-- API は Cognito の JWT がないと呼べない。SPA の配信だけが認証なし
-- Lambda の権限は、使う 2 つのモデル（推論プロファイルとその基盤モデル）の `bedrock:InvokeModel`、`transcribe:StartStreamTranscriptionWebSocket`、`polly:SynthesizeSpeech` のみ
-- Transcribe の URL は Lambda のロールで署名し、有効期限は 30 秒（発行直後に接続するため。漏れた URL で別の接続を開かれにくくする）。ブラウザに AWS の認証情報を渡さない（Cognito の ID プールを使わない）
-- 入力長の上限（本文 2,000 文字、文脈 10 文）と API のスロットリングで、Bedrock の使いすぎを抑える
-- CSP（`script-src 'self'`、接続先は自ドメイン・Cognito・Transcribe のみ）、HSTS、`Referrer-Policy: no-referrer` などを付ける
-- 文字起こしや翻訳の本文はログに出さない（エラー種別のみ）。CloudWatch Logs の保持期間は 1 週間
-
-- 既定ではセルフサインアップを無効にし、管理者が作ったユーザーだけが使える。`-c selfSignUp=true` で許可すると、URL を知っている誰でも登録して Transcribe と Bedrock を使えるようになる（同時接続の上限は既定でアカウント全体で 25 本）。許可する場合は AWS Budgets のアラートも設定する
-- ログアウト時に更新トークンを取り消す（`/oauth2/revoke`）
+- API は Cognito の JWT がないと呼べない。認証なしで返すのは SPA の配信だけ
+- 既定ではセルフサインアップを無効にし、管理者が作ったユーザーだけが使える。`-c selfSignUp=true` で許可すると、URL を知っている誰でも登録して Transcribe と Bedrock を使えるようになる（Transcribe の同時接続の上限は、既定でアカウント全体で 25 本）。許可する場合は AWS Budgets のアラートも設定する
+- Lambda の権限は、使う 2 つのモデル（推論プロファイルとその基盤モデル）への `bedrock:InvokeModel`、`transcribe:StartStreamTranscriptionWebSocket`、`polly:SynthesizeSpeech` だけ
+- ブラウザに AWS の認証情報を渡さない（Cognito の ID プールを使わない）。Transcribe の URL は Lambda のロールで署名し、有効期限を 30 秒にしている。発行の直後に接続するので、漏れた URL で別の接続を開かれる余地を小さくできる
+- ログアウトするとリフレッシュトークンを取り消す（`/oauth2/revoke`）
+- 入力の長さの上限（本文 2,000 文字、文脈 10 文）と API のスロットリングで、Bedrock の使いすぎを抑える
+- CSP（`script-src 'self'`、接続先は自分のドメイン・Cognito・Transcribe だけ）、HSTS、`Referrer-Policy: no-referrer` を付ける
+- 文字起こしと訳文の本文はログに出さない（エラーの種類だけを出す）。CloudWatch Logs の保持期間は 1 週間
 
 ## ローカル開発
 
@@ -135,16 +139,17 @@ CLI なら `aws cognito-idp admin-create-user --user-pool-id <UserPoolId> --user
 AWS_PROFILE=your-profile npm run dev
 ```
 
-Vite の開発サーバーが `lambda/api.ts` を手元の AWS 認証情報で直接呼び出します（ログインは省略されます）。
-開発サーバーではブラウザのコンソールから `__devFeed(resultId, text, partial)` を呼ぶと、マイクなしで文字起こし結果を流し込めます。
+Vite の開発サーバーが、`lambda/api.ts` を手元の AWS 認証情報で直接呼びます（ログインは省略します）。
+開発サーバーでは、ブラウザのコンソールから `__devFeed(resultId, text, partial)` を呼ぶと、マイクを使わずに文字起こしの結果を流し込めます。
 
 ## 制限
 
-- PC の音声の取得は Chromium 系ブラウザ（Chrome、Edge）の画面共有に依存する。共有ダイアログでは「タブ」を選んで「タブの音声も共有」をオンにする。ウインドウの共有は音声を含まず、画面全体の音声は OS によって取れない。Safari と Firefox は画面共有で音声を取れない
+- PC の音声は、Chromium 系ブラウザ（Chrome、Edge）の画面共有でしか取れない。共有ダイアログで「タブ」を選び、「タブの音声も共有」をオンにする。ウインドウの共有には音声が含まれず、画面全体の音声は OS によって取れない。Safari と Firefox は画面共有で音声を取れないので、マイクのみになる
 - ブラウザを問わず PC の音声を使いたいときは、仮想オーディオデバイス（Mac の BlackHole、Windows の VB-CABLE など）に PC の出力を流し、設定の「入力デバイス」でそれを選ぶ
-- マイクと PC の音声を同時に使うとき、スピーカーの音をマイクが拾うと同じ発言を二重に文字起こしする。ヘッドホンを使うか、入力を「PC の音声のみ」にする
-- 読み上げ中は自分の読み上げを文字起こししないよう、入力を無音にする
-- Cognito が送るメール（招待・パスワード再設定）は 1 日 50 通まで。それ以上必要なら Amazon SES を設定する
+- マイクと PC の音声を同時に使うと、スピーカーの音をマイクが拾い、同じ発言を二重に文字起こしすることがある。ヘッドホンを使うか、入力を「PC の音声のみ」にする
+- 読み上げ中は、その音声を文字起こししないよう入力を無音にする
+- ブラウザの読み上げ機能は声の性別を返さないので、声の名前から推定している。ブラウザや OS によっては外れる
+- Cognito が送るメール（招待、パスワードの再設定）は 1 日 50 通まで。それ以上必要なら Amazon SES を設定する
 
 ## ライセンス
 
