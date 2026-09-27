@@ -1,5 +1,5 @@
 // Settings live in sessionStorage: kept while the tab is open, gone when it is closed.
-import { DEFAULT_CONTEXT, type VoiceGender } from '../../shared/languages.ts';
+import { DEFAULT_CONTEXT, findLanguage, type VoiceGender } from '../../shared/languages.ts';
 
 export type AudioSource = 'mix' | 'mic' | 'system';
 
@@ -52,6 +52,10 @@ function load(): Settings {
     const saved = JSON.parse(sessionStorage.getItem(KEY) ?? '{}') as Partial<Settings>;
     const s = { ...defaults, ...saved };
     if (!canCaptureSystemAudio) s.source = 'mic';
+    if (!findLanguage(s.langA) || !findLanguage(s.langB) || s.langA === s.langB) {
+      s.langA = defaults.langA;
+      s.langB = defaults.langB;
+    }
     return s;
   } catch {
     return { ...defaults };

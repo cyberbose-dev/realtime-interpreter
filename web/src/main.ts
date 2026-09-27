@@ -19,7 +19,7 @@ import { type StreamStatus, TranscribeStream } from './transcribe.ts';
 import { View } from './ui.ts';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
-const label = (code: string) => findLanguage(code)?.label ?? code;
+const label = (code: string) => findLanguage(code)?.ja ?? code;
 
 let running = false;
 let wakeLock: WakeLockSentinel | undefined;
@@ -44,9 +44,9 @@ const view = new View({
     void speak(seg.translation, seg.to, gender, { onStart: () => {}, onEnd: done }).then((result) => {
       if (result === 'unsupported') {
         done();
-        notice(`${label(seg.to)} の読み上げにはこのブラウザが対応していません`);
+        notice(`${label(seg.to)}の読み上げにはこのブラウザが対応していません`);
       } else if (result === 'other-gender') {
-        notice(`${label(seg.to)} には${gender === 'male' ? '男性' : '女性'}の音声がないため、${gender === 'male' ? '女性' : '男性'}の音声で読み上げます`);
+        notice(`${label(seg.to)}には${gender === 'male' ? '男性' : '女性'}の音声がないため、${gender === 'male' ? '女性' : '男性'}の音声で読み上げます`);
       }
     });
   },
@@ -177,7 +177,7 @@ function fillForm() {
   for (const name of ['langA', 'langB'] as const) {
     const sel = form.elements.namedItem(name) as HTMLSelectElement;
     if (sel.options.length === 0) {
-      for (const l of LANGUAGES) sel.add(new Option(l.label, l.code));
+      for (const l of LANGUAGES) sel.add(new Option(l.ja === l.label ? l.ja : `${l.ja} / ${l.label}`, l.code));
     }
     sel.value = settings[name];
   }

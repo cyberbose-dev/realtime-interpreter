@@ -70,7 +70,8 @@ button.primary { background: var(--accent); color: var(--accent-text); border-co
 /* ---------- app layout ---------- */
 #app:not([hidden]) {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
@@ -92,7 +93,10 @@ header {
 .status[data-state='error'] .dot { background: var(--danger); }
 #status-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.direction { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap; }
+.direction { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap; min-width: 0; }
+.direction #dir-from, .direction #dir-to { overflow: hidden; text-overflow: ellipsis; min-width: 3.2em; }
+.direction .arrow, .direction .swap { flex: none; }
+header .icon-btn { flex: none; white-space: nowrap; }
 .direction .arrow { color: var(--muted); }
 .direction .swap { color: var(--accent); margin-left: 4px; }
 .icon-btn[aria-pressed='true'] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
