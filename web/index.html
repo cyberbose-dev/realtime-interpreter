@@ -59,7 +59,12 @@
             <option value="mic">マイクのみ</option>
             <option value="system">PC の音声のみ</option>
           </select>
-          <small>PC の音声は画面共有のダイアログで「音声を共有」をオンにしてください。タブの共有が最も確実です。</small>
+          <small>「開始」を押すと画面共有のダイアログが出ます。「タブ」を選び、「タブの音声も共有」をオンにしてください。ウインドウの共有は音声に対応していません。画面全体の共有で音声を取れるかは OS によります。</small>
+        </label>
+        <p id="system-audio-unsupported" class="small" hidden>このブラウザは画面共有で音声を取得できないため、PC の音声は使えません。Chrome か Edge で開くか、下の入力デバイスに仮想オーディオデバイス（Mac の BlackHole など）を選んでください。</p>
+        <label>入力デバイス
+          <select name="micDeviceId"></select>
+          <small>仮想オーディオデバイス（Mac の BlackHole、Windows の VB-CABLE など）を選ぶと、どのブラウザでも PC の音声を取り込めます。</small>
         </label>
         <label class="inline"><input type="checkbox" name="draft" /> 確定前の翻訳を表示する（Nova 2 Lite）</label>
         <label>文字サイズ

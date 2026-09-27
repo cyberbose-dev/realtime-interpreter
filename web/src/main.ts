@@ -1,11 +1,12 @@
 import { DEFAULT_CONTEXT, findLanguage, LANGUAGES } from '../../shared/languages.ts';
 import { onLoginRequired, post, withRetry } from './api.ts';
-import { AudioCapture } from './audio.ts';
+import { AudioCapture, type CaptureResult, listMicrophones } from './audio.ts';
 import { handleCallback, isLoggedIn, login, logout } from './auth.ts';
 import { getConfig, loadConfig } from './config.ts';
 import { Session } from './session.ts';
 import {
   canCaptureSystemAudio,
+  isMobile,
   onSettingsChange,
   settings,
   sourceLang,
@@ -96,8 +97,7 @@ async function start() {
   running = true;
   renderStart();
   try {
-    const got = await capture.start(settings.source);
-    if (settings.source !== 'mic' && !got.system) notice('PC の音声を取得できなかったため、マイクのみで文字起こしします。');
+    reportCapture(await capture.start(settings.source, settings.micDeviceId));
   } catch (e) {
     running = false;
     renderStart();
@@ -120,9 +120,20 @@ async function stop() {
   wakeLock = undefined;
 }
 
+function reportCapture(got: CaptureResult) {
+  if (got.systemProblem === 'no-audio') {
+    notice(
+      '共有した画面から音声を取得できなかったため、マイクのみで文字起こしします。PC の音声を使うには、共有ダイアログで「タブ」を選び「タブの音声も共有」をオンにしてください（ウインドウの共有は音声に対応していません）。',
+      20_000,
+    );
+  } else if (got.systemProblem === 'cancelled') {
+    notice('画面共有がキャンセルされたため、マイクのみで文字起こしします。', 10_000);
+  }
+}
+
 async function restartCapture(source: Settings['source']) {
   try {
-    await capture.start(source);
+    reportCapture(await capture.start(source, settings.micDeviceId));
   } catch (e) {
     notice(`音声入力を切り替えられません: ${(e as Error).message}`, 0);
     void stop();
@@ -153,6 +164,14 @@ function renderSettings() {
   $('dir-label-AtoB').textContent = `${label(settings.langA)} → ${label(settings.langB)}`;
 }
 
+async function fillMicrophones() {
+  const sel = $<HTMLFormElement>('settings-form').elements.namedItem('micDeviceId') as HTMLSelectElement;
+  const mics = await listMicrophones();
+  sel.replaceChildren(new Option('既定のマイク', ''));
+  mics.forEach((m, i) => sel.add(new Option(m.label || `マイク ${i + 1}（開始後に名前が表示されます）`, m.deviceId)));
+  sel.value = mics.some((m) => m.deviceId === settings.micDeviceId) ? settings.micDeviceId : '';
+}
+
 function fillForm() {
   const form = $<HTMLFormElement>('settings-form');
   for (const name of ['langA', 'langB'] as const) {
@@ -169,6 +188,8 @@ function fillForm() {
   (form.elements.namedItem('context') as HTMLTextAreaElement).value = settings.context;
   for (const r of form.querySelectorAll<HTMLInputElement>('input[name=direction]')) r.checked = r.value === settings.direction;
   $('source-field').hidden = !canCaptureSystemAudio;
+  $('system-audio-unsupported').hidden = canCaptureSystemAudio || isMobile;
+  void fillMicrophones();
 }
 
 function wireSettings() {
@@ -192,6 +213,9 @@ function wireSettings() {
       }
       case 'direction':
         updateSettings({ direction: t.value as Settings['direction'] });
+        break;
+      case 'micDeviceId':
+        updateSettings({ micDeviceId: t.value });
         break;
       case 'source':
         updateSettings({ source: t.value as Settings['source'] });
@@ -235,7 +259,7 @@ function wireSettings() {
     renderSettings();
     if (!running) return;
     if (changed.some((k) => k === 'langA' || k === 'langB' || k === 'direction')) stream.setLanguage(sourceLang());
-    if (changed.includes('source')) void restartCapture(settings.source);
+    if (changed.includes('source') || changed.includes('micDeviceId')) void restartCapture(settings.source);
   });
 }
 

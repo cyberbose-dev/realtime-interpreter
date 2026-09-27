@@ -11,6 +11,8 @@ export interface Settings {
   /** BtoA: listen to langB and read langA (default). */
   direction: 'BtoA' | 'AtoB';
   source: AudioSource;
+  /** Microphone (or virtual loopback device such as BlackHole); empty = system default. */
+  micDeviceId: string;
   draft: boolean;
   showOriginal: boolean;
   fontSize: 's' | 'm' | 'l' | 'xl';
@@ -18,12 +20,17 @@ export interface Settings {
   context: string;
 }
 
-export const canCaptureSystemAudio = (() => {
-  const mobile =
-    /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
-    (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1); // iPadOS
-  return !mobile && typeof navigator.mediaDevices?.getDisplayMedia === 'function';
-})();
+export const isMobile =
+  /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+  (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1); // iPadOS
+
+/** Only Chromium (Chrome, Edge) returns audio from screen/tab sharing; Safari and Firefox never do. */
+const isChromium = !!(navigator as { userAgentData?: { brands?: { brand: string }[] } }).userAgentData?.brands?.some((b) =>
+  /Chromium/.test(b.brand),
+);
+
+export const canCaptureSystemAudio =
+  !isMobile && isChromium && typeof navigator.mediaDevices?.getDisplayMedia === 'function';
 
 const KEY = 'settings';
 
@@ -32,6 +39,7 @@ const defaults: Settings = {
   langB: 'en-US',
   direction: 'BtoA',
   source: canCaptureSystemAudio ? 'mix' : 'mic',
+  micDeviceId: '',
   draft: true,
   showOriginal: false,
   fontSize: 'm',
