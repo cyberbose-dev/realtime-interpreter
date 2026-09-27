@@ -31,9 +31,26 @@ export class InterpreterStack extends cdk.Stack {
     const rateLimit = Number(ctx('throttleRate') ?? 20);
     const burstLimit = Number(ctx('throttleBurst') ?? 40);
 
-    // ---------- Auth (Cognito managed login, self sign-up with e-mail verification) ----------
+    const selfSignUp = ctx('selfSignUp') === 'true';
+
+    // ---------- HTTP API ----------
+    const api = new apigw.HttpApi(this, 'HttpApi', { description: 'Simultaneous interpreter' });
+    const stage = api.defaultStage!.node.defaultChild as apigw.CfnStage;
+    stage.defaultRouteSettings = { throttlingRateLimit: rateLimit, throttlingBurstLimit: burstLimit };
+    const appUrl = api.url!; // https://{id}.execute-api.{region}.amazonaws.com/
+
+    // ---------- Auth (Cognito managed login) ----------
+    // By default only administrators create users (console or CLI), so strangers cannot run up Transcribe/Bedrock costs.
     const userPool = new cognito.UserPool(this, 'UserPool', {
-      selfSignUpEnabled: ctx('selfSignUp') !== 'false',
+      selfSignUpEnabled: selfSignUp,
+      userInvitation: {
+        emailSubject: '同時通訳アプリへの招待',
+        emailBody:
+          '同時通訳アプリのアカウントを作成しました。<br><br>' +
+          `URL: <a href="${appUrl}">${appUrl}</a><br>` +
+          'ユーザー名: {username}<br>仮パスワード: {####}<br><br>' +
+          '初回ログイン時に新しいパスワードを設定してください。仮パスワードの有効期限は 7 日間です。',
+      },
       signInAliases: { email: true },
       autoVerify: { email: true },
       standardAttributes: { email: { required: true, mutable: false } },
@@ -94,12 +111,6 @@ export class InterpreterStack extends cdk.Stack {
       }),
     );
 
-    // ---------- HTTP API ----------
-    const api = new apigw.HttpApi(this, 'HttpApi', { description: 'Simultaneous interpreter' });
-    const stage = api.defaultStage!.node.defaultChild as apigw.CfnStage;
-    stage.defaultRouteSettings = { throttlingRateLimit: rateLimit, throttlingBurstLimit: burstLimit };
-
-    const appUrl = api.url!; // https://{id}.execute-api.{region}.amazonaws.com/
     const client = userPool.addClient('WebClient', {
       generateSecret: false,
       authFlows: { userSrp: true },
@@ -129,11 +140,13 @@ export class InterpreterStack extends cdk.Stack {
       environment: {
         CLIENT_ID: client.userPoolClientId,
         COGNITO_DOMAIN: domain.baseUrl(),
+        SELF_SIGN_UP: String(selfSignUp),
       },
       bundling: {
         ...common.bundling,
         commandHooks: {
-          beforeBundling: () => [],
+          // Build the SPA here so a plain `cdk deploy` never ships a stale web/dist.
+          beforeBundling: (inputDir: string) => [`cd "${inputDir}" && npx vite build web --logLevel warn`],
           beforeInstall: () => [],
           // The built SPA (web/dist) ships inside the Lambda package.
           afterBundling: (inputDir: string, outputDir: string) => [`cp -R "${inputDir}/web/dist" "${outputDir}/site"`],

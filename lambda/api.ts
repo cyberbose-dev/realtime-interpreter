@@ -102,7 +102,8 @@ async function transcribeUrl(body: Record<string, unknown>) {
         'partial-results-stability': 'medium',
       },
     },
-    { expiresIn: 300 },
+    // Used right after issuance; a short lifetime keeps a leaked URL from opening more streams.
+    { expiresIn: 30 },
   );
   const qs = Object.entries(signed.query ?? {})
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)

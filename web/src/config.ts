@@ -2,6 +2,7 @@ export interface AppConfig {
   region: string;
   clientId: string;
   cognitoDomain: string;
+  selfSignUp?: boolean;
   /** Local dev server only: no login. */
   dev?: boolean;
 }

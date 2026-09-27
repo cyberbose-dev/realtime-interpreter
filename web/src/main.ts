@@ -22,6 +22,10 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 const label = (code: string) => findLanguage(code)?.ja ?? code;
 
 let running = false;
+let lastResultAt = 0;
+let idleTimer: ReturnType<typeof setInterval> | undefined;
+/** Transcribe bills for silence too: stop when nothing has been recognized for this long. */
+const IDLE_STOP_MS = 10 * 60_000;
 let wakeLock: WakeLockSentinel | undefined;
 
 function notice(text: string, timeoutMs = 6000) {
@@ -67,7 +71,10 @@ const STATUS_TEXT: Record<StreamStatus, string> = {
 
 const stream = new TranscribeStream({
   getUrl: async (language) => (await withRetry(() => post<{ url: string }>('transcribe-url', { language }), 3)).url,
-  onResult: (r) => session.handleResult(r, sourceLang(), targetLang(), settings.direction === 'AtoB'),
+  onResult: (r) => {
+    lastResultAt = Date.now();
+    session.handleResult(r, sourceLang(), targetLang(), settings.direction === 'AtoB');
+  },
   onStatus: (s, detail) => {
     const el = $('status');
     el.dataset.state = s;
@@ -106,12 +113,22 @@ async function start() {
     return;
   }
   stream.start(sourceLang());
+  lastResultAt = Date.now();
+  idleTimer = setInterval(() => {
+    // Only time spent streaming is billed; don't count offline or reconnecting periods.
+    if ($('status').dataset.state !== 'live') lastResultAt = Date.now();
+    else if (Date.now() - lastResultAt > IDLE_STOP_MS) {
+      void stop();
+      notice('10 分間音声を認識しなかったため、課金を抑えるために停止しました。再開するには「開始」を押してください。', 0);
+    }
+  }, 30_000);
   wakeLock = await navigator.wakeLock?.request('screen').catch(() => undefined);
 }
 
 async function stop() {
   if (!running) return;
   running = false;
+  clearInterval(idleTimer);
   renderStart();
   stream.stop();
   capture.stop();
@@ -251,7 +268,7 @@ function wireSettings() {
   });
   $('logout').addEventListener('click', async () => {
     await stop();
-    logout();
+    await logout();
   });
   // Close when the backdrop is clicked.
   dialog.addEventListener('click', (e) => e.target === dialog && dialog.close());
@@ -278,6 +295,8 @@ async function boot() {
   }
   if (!isLoggedIn()) {
     $('login').hidden = false;
+    $('login-btn').textContent = getConfig().selfSignUp ? 'ログイン / 新規登録' : 'ログイン';
+    $('login-note').hidden = !!getConfig().selfSignUp;
     $('login-btn').addEventListener('click', () => void login());
     return;
   }

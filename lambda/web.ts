@@ -52,6 +52,7 @@ const config = JSON.stringify({
   region,
   clientId: process.env.CLIENT_ID,
   cognitoDomain,
+  selfSignUp: process.env.SELF_SIGN_UP === 'true',
 });
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {

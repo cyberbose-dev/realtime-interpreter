@@ -10,7 +10,7 @@
     "build:web": "vite build web",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p web/tsconfig.json",
     "cdk": "cdk",
-    "deploy": "npm run build:web && cdk deploy --require-approval never",
+    "deploy": "cdk deploy --require-approval never",
     "destroy": "cdk destroy"
   },
   "devDependencies": {

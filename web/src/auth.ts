@@ -125,9 +125,18 @@ export async function getAccessToken(force = false): Promise<string> {
   return refreshing;
 }
 
-export function logout(): void {
+export async function logout(): Promise<void> {
   const { cognitoDomain, clientId } = getConfig();
+  const refreshToken = tokens?.refreshToken;
   setTokens(null);
+  if (refreshToken) {
+    // Invalidate the refresh token (and the tokens issued from it) instead of letting it live until expiry.
+    await fetch(`${cognitoDomain}/oauth2/revoke`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ token: refreshToken, client_id: clientId }),
+    }).catch(() => undefined);
+  }
   const params = new URLSearchParams({ client_id: clientId, logout_uri: redirectUri() });
   location.assign(`${cognitoDomain}/logout?${params}`);
 }

@@ -194,7 +194,8 @@ export class TranscribeStream {
       }
     } else if (type === 'exception') {
       const name = String(msg.headers[':exception-type']?.value ?? 'Exception');
-      if (name === 'BadRequestException') {
+      // An expired presigned URL (slow network between issuing and connecting) is fixed by a fresh URL.
+      if (name === 'BadRequestException' && !/expired/i.test(String(body.Message))) {
         // e.g. unsupported language in this region: retrying will not help.
         this.running = false;
         this.dropSocket();

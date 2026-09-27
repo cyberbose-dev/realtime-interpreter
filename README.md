@@ -51,9 +51,9 @@ flowchart LR
 |---|---|
 | API Gateway（HTTP API） | 入口を 1 つにまとめる。`GET /` は SPA、`POST /api/{op}` は Cognito の JWT を検証してから API へ |
 | Lambda `web` | Vite でビルドした SPA をパッケージに同梱して返す。CSP などのセキュリティヘッダーを付ける |
-| Lambda `api` | `transcribe-url`（Transcribe の署名付き WebSocket URL、有効 5 分）、`translate`（`draft` / `final`）、`speak`（Polly） |
+| Lambda `api` | `transcribe-url`（Transcribe の署名付き WebSocket URL、有効 30 秒）、`translate`（`draft` / `final`）、`speak`（Polly） |
 | Transcribe | ブラウザから WebSocket で直接つなぐ。音声は Lambda を通らない |
-| Cognito | マネージドログイン（セルフサインアップとメール確認）。SPA は認可コード + PKCE でトークンを得る |
+| Cognito | マネージドログイン。ユーザーは管理者が作る（既定）。SPA は認可コード + PKCE でトークンを得る |
 
 S3 と CloudFront は使いません。SPA も API も同じドメイン（API Gateway）から配信するので CORS が不要です。
 
@@ -77,7 +77,13 @@ npm run deploy                      # 東京（ap-northeast-1）
 npm run deploy -- -c region=us-west-2   # リージョンを変える
 ```
 
-出力の `AppUrl` を開き、「ログイン / 新規登録」からメールアドレスで登録します。
+出力の `AppUrl` を開いてログインします。既定ではセルフサインアップを無効にしているので、ユーザーは管理者が作ります。
+
+1. AWS マネジメントコンソールで Amazon Cognito を開き、出力の `UserPoolId` のユーザープールを選ぶ
+2. 「ユーザー」→「ユーザーを作成」で、招待メッセージを「E メールで送信」、パスワードを「パスワードの生成」にし、メールアドレスを入れて「E メールアドレスを検証済みとしてマークする」をオンにして作成する
+3. 招待メール（アプリの URL と仮パスワードが入っている）を受け取った人が、初回ログイン時に新しいパスワードを設定する
+
+CLI なら `aws cognito-idp admin-create-user --user-pool-id <UserPoolId> --username <メールアドレス> --user-attributes Name=email,Value=<メールアドレス> Name=email_verified,Value=true` でも作れます。
 
 初回に Amazon Bedrock でやること:
 
@@ -91,7 +97,7 @@ npm run deploy -- -c region=us-west-2   # リージョンを変える
 | `region` | `ap-northeast-1` | デプロイ先。`CDK_DEPLOY_REGION` や `AWS_REGION` でも指定できる |
 | `stackName` | `SimulInterpreter` | スタック名 |
 | `draftModelId` / `finalModelId` | 上表 | モデル ID を明示するとき |
-| `selfSignUp` | `true` | `false` でセルフサインアップを止める（ユーザーは管理者が作る） |
+| `selfSignUp` | `false` | `true` でセルフサインアップ（誰でもメールアドレスで登録できる）を許可する |
 | `throttleRate` / `throttleBurst` | `20` / `40` | API 全体のスロットリング（リクエスト/秒） |
 | `domainPrefix` | 自動 | Cognito ドメインの接頭辞 |
 
@@ -109,19 +115,19 @@ npm run deploy -- -c region=us-west-2   # リージョンを変える
 | Nova 2 Lite の仮訳（最大で 1 時間に約 5,000 回） | 約 $0.5 |
 | Lambda、API Gateway、Cognito、Polly | 数セント（無料利用枠の範囲に収まることが多い） |
 
-仮訳は設定でオフにできます。
+仮訳は設定でオフにできます。Transcribe は無音の間も課金されるため、10 分間なにも認識しなければ自動で停止します（オフラインや再接続中の時間は数えません）。
 
 ## セキュリティ
 
 - API は Cognito の JWT がないと呼べない。SPA の配信だけが認証なし
 - Lambda の権限は、使う 2 つのモデル（推論プロファイルとその基盤モデル）の `bedrock:InvokeModel`、`transcribe:StartStreamTranscriptionWebSocket`、`polly:SynthesizeSpeech` のみ
-- Transcribe の URL は Lambda のロールで署名し、有効期限は 5 分。ブラウザに AWS の認証情報を渡さない（Cognito の ID プールを使わない）
+- Transcribe の URL は Lambda のロールで署名し、有効期限は 30 秒（発行直後に接続するため。漏れた URL で別の接続を開かれにくくする）。ブラウザに AWS の認証情報を渡さない（Cognito の ID プールを使わない）
 - 入力長の上限（本文 2,000 文字、文脈 10 文）と API のスロットリングで、Bedrock の使いすぎを抑える
 - CSP（`script-src 'self'`、接続先は自ドメイン・Cognito・Transcribe のみ）、HSTS、`Referrer-Policy: no-referrer` などを付ける
 - 文字起こしや翻訳の本文はログに出さない（エラー種別のみ）。CloudWatch Logs の保持期間は 1 週間
 
-セルフサインアップを有効にしたまま公開すると、誰でも登録して Transcribe と Bedrock を使えます。
-不特定多数に URL を知られる使い方をするなら、`-c selfSignUp=false` で管理者がユーザーを作るか、AWS Budgets のアラートを設定してください。
+- 既定ではセルフサインアップを無効にし、管理者が作ったユーザーだけが使える。`-c selfSignUp=true` で許可すると、URL を知っている誰でも登録して Transcribe と Bedrock を使えるようになる（同時接続の上限は既定でアカウント全体で 25 本）。許可する場合は AWS Budgets のアラートも設定する
+- ログアウト時に更新トークンを取り消す（`/oauth2/revoke`）
 
 ## ローカル開発
 
@@ -138,6 +144,7 @@ Vite の開発サーバーが `lambda/api.ts` を手元の AWS 認証情報で�
 - ブラウザを問わず PC の音声を使いたいときは、仮想オーディオデバイス（Mac の BlackHole、Windows の VB-CABLE など）に PC の出力を流し、設定の「入力デバイス」でそれを選ぶ
 - マイクと PC の音声を同時に使うとき、スピーカーの音をマイクが拾うと同じ発言を二重に文字起こしする。ヘッドホンを使うか、入力を「PC の音声のみ」にする
 - 読み上げ中は自分の読み上げを文字起こししないよう、入力を無音にする
+- Cognito が送るメール（招待・パスワード再設定）は 1 日 50 通まで。それ以上必要なら Amazon SES を設定する
 
 ## ライセンス
 
