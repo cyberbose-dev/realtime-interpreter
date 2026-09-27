@@ -1,5 +1,5 @@
 // Settings live in sessionStorage: kept while the tab is open, gone when it is closed.
-import { DEFAULT_CONTEXT } from '../../shared/languages.ts';
+import { DEFAULT_CONTEXT, type VoiceGender } from '../../shared/languages.ts';
 
 export type AudioSource = 'mix' | 'mic' | 'system';
 
@@ -14,6 +14,7 @@ export interface Settings {
   draft: boolean;
   showOriginal: boolean;
   fontSize: 's' | 'm' | 'l' | 'xl';
+  voiceGender: VoiceGender;
   context: string;
 }
 
@@ -34,6 +35,7 @@ const defaults: Settings = {
   draft: true,
   showOriginal: false,
   fontSize: 'm',
+  voiceGender: 'female',
   context: DEFAULT_CONTEXT,
 };
 

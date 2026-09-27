@@ -39,10 +39,13 @@ const view = new View({
       el.classList.remove('speaking');
       capture.setMuted(false);
     };
-    void speak(seg.translation, seg.to, { onStart: () => {}, onEnd: done }).then((ok) => {
-      if (!ok) {
+    const gender = settings.voiceGender;
+    void speak(seg.translation, seg.to, gender, { onStart: () => {}, onEnd: done }).then((result) => {
+      if (result === 'unsupported') {
         done();
         notice(`${label(seg.to)} の読み上げにはこのブラウザが対応していません`);
+      } else if (result === 'other-gender') {
+        notice(`${label(seg.to)} には${gender === 'male' ? '男性' : '女性'}の音声がないため、${gender === 'male' ? '女性' : '男性'}の音声で読み上げます`);
       }
     });
   },
@@ -161,6 +164,7 @@ function fillForm() {
   }
   (form.elements.namedItem('source') as HTMLSelectElement).value = settings.source;
   (form.elements.namedItem('fontSize') as HTMLSelectElement).value = settings.fontSize;
+  (form.elements.namedItem('voiceGender') as HTMLSelectElement).value = settings.voiceGender;
   (form.elements.namedItem('draft') as HTMLInputElement).checked = settings.draft;
   (form.elements.namedItem('context') as HTMLTextAreaElement).value = settings.context;
   for (const r of form.querySelectorAll<HTMLInputElement>('input[name=direction]')) r.checked = r.value === settings.direction;
@@ -194,6 +198,9 @@ function wireSettings() {
         break;
       case 'fontSize':
         updateSettings({ fontSize: t.value as Settings['fontSize'] });
+        break;
+      case 'voiceGender':
+        updateSettings({ voiceGender: t.value as Settings['voiceGender'] });
         break;
       case 'draft':
         updateSettings({ draft: t.checked });

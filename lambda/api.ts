@@ -219,13 +219,15 @@ async function final(from: Language, to: Language, text: string, context: string
 async function speak(body: Record<string, unknown>) {
   const language = lang(body.language, 'language');
   const text = str(body.text, 'text', LIMITS.speak);
-  if (!language.polly) return { fallback: true };
+  const gender = body.gender === 'male' ? 'male' : 'female';
+  const voice = language.polly?.[gender];
+  if (!voice) return { fallback: true };
   const res = await polly.send(
     new SynthesizeSpeechCommand({
       Text: text,
-      VoiceId: language.polly.voiceId as VoiceId,
-      LanguageCode: language.polly.languageCode as never,
-      Engine: Engine.NEURAL,
+      VoiceId: voice.voiceId as VoiceId,
+      LanguageCode: language.polly?.languageCode as never,
+      Engine: voice.engine === 'standard' ? Engine.STANDARD : Engine.NEURAL,
       OutputFormat: OutputFormat.MP3,
     }),
   );
