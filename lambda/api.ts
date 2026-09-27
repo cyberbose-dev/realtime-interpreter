@@ -153,10 +153,12 @@ async function final(from: Language, to: Language, text: string, context: string
     `- Translate the sentence in <current> into ${to.name}, faithfully to the original and concisely. Do not add explanations.\n` +
     `- <history> holds up to ${LIMITS.history} previous transcript segments with their current translations. ` +
     `Use them to resolve pronouns, terminology and sentences that the speech recognizer split across segments.\n` +
-    `- If, given the new sentence, an earlier translation is clearly wrong or inconsistent (mistranslated term, ` +
-    `wrong subject, a sentence split across segments), return a corrected translation for that id in "revisions". ` +
+    `- Review every earlier translation in <history> against the new sentence and the user's context. ` +
+    `If one is clearly wrong or inconsistent, return a corrected translation for that id in "revisions". Typical cases: ` +
+    `a technical or product term translated as an everyday word (e.g. an S3 "bucket" rendered as a household bucket), ` +
+    `a mistranslated term, a wrong subject, or a sentence the recognizer split across segments. ` +
     `Revise only when it is meaningfully better; otherwise return an empty list.\n` +
-    `- Keep terminology consistent with the earlier translations.\n` +
+    `- Keep terminology consistent across the whole conversation, including your revisions.\n` +
     `- Always answer by calling the submit_translation tool.`;
   const historyXml = hist
     .map((h) => `<segment id="${esc(h.id)}">\n<source>${esc(h.source)}</source>\n<translation>${esc(h.translation)}</translation>\n</segment>`)
