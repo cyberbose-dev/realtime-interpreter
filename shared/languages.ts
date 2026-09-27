@@ -86,7 +86,7 @@ export const LANGUAGES: Language[] = [
 export const findLanguage = (code: string): Language | undefined => LANGUAGES.find((l) => l.code === code);
 
 export const DEFAULT_CONTEXT =
-  'あなたは AWS のイベント（AWS Summit や re:Invent など）の参加者のために通訳しています。' +
+  'あなたは AWS のイベント（AWS Summit や re:Invent など）の参加者のために翻訳しています。' +
   'AWS のサービス名、技術用語、ビジネス用語は無理に翻訳せず、英字またはカタカナで表記してください。' +
   '原文に忠実に、簡潔に翻訳してください。';
 

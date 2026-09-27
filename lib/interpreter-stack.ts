@@ -44,9 +44,9 @@ export class InterpreterStack extends cdk.Stack {
     const userPool = new cognito.UserPool(this, 'UserPool', {
       selfSignUpEnabled: selfSignUp,
       userInvitation: {
-        emailSubject: '同時通訳アプリへの招待',
+        emailSubject: 'リアルタイム翻訳アプリへの招待',
         emailBody:
-          '同時通訳アプリのアカウントを作成しました。<br><br>' +
+          'リアルタイム翻訳アプリのアカウントを作成しました。<br><br>' +
           `URL: <a href="${appUrl}">${appUrl}</a><br>` +
           'ユーザー名: {username}<br>仮パスワード: {####}<br><br>' +
           '初回ログイン時に新しいパスワードを設定してください。仮パスワードの有効期限は 7 日間です。',

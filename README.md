@@ -1,6 +1,6 @@
 # realtime-interpreter
 
-ブラウザで使うリアルタイムの同時通訳アプリです。AWS のサーバーレスのサービスだけで動きます。
+ブラウザで使うリアルタイム翻訳アプリです。AWS のサーバーレスのサービスだけで動きます。
 Amazon Transcribe で音声を文字起こしし、話している途中の文を Amazon Nova 2 Lite で仮訳し、
 文が確定したら Claude Haiku 4.5 が直前の文脈を踏まえて訳し直します。訳文は長押しで Amazon Polly が読み上げます。
 
