@@ -38,6 +38,9 @@ export class View {
       row = { src: document.createElement('p'), tgt: document.createElement('p') };
       row.src.className = 'seg';
       row.tgt.className = 'seg';
+      // Arabic, Hebrew and Persian are right-to-left: let each line pick its own direction.
+      row.src.dir = 'auto';
+      row.tgt.dir = 'auto';
       this.attachGestures(row.tgt, seg);
       this.original.append(row.src);
       this.translation.append(row.tgt);
